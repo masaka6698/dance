@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>小朋友跳舞評比 MVP</title>
+  <style>
+    :root {
+      --bg: #101014;
+      --card: #1b1b24;
+      --text: #f7f7fb;
+      --muted: #a9a9b6;
+      --accent: #ffcc4d;
+      --danger: #ff6b6b;
+      --ok: #7ee787;
+      --border: rgba(255,255,255,.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #15151f, #08080c);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 18px 14px 28px;
+    }
+    h1 {
+      font-size: 24px;
+      margin: 8px 0 6px;
+    }
+    .sub {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+    .card {
+      background: rgba(27,27,36,.94);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      margin: 12px 0;
+      box-shadow: 0 10px 30px rgba(0,0,0,.22);
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #0f0f16;
+      color: var(--text);
+      padding: 13px 12px;
+      font-size: 16px;
+      outline: none;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 12px;
+      font-size: 16px;
+      font-weight: 700;
+      background: var(--accent);
+      color: #1b1400;
+      cursor: pointer;
+    }
+    button.secondary { background: #2d2d3a; color: var(--text); }
+    button.danger { background: var(--danger); color: #240000; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .stage {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      background: #000;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    #player { width: 100%; height: 100%; }
+    .selfie {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      width: 32%;
+      aspect-ratio: 9 / 16;
+      background: #000;
+      border: 2px solid rgba(255,255,255,.7);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 26px rgba(0,0,0,.45);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .selfie.hidden { opacity: 0; pointer-events: none; transform: scale(.92); }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 8px 10px;
+      background: #242433;
+      color: var(--muted);
+      font-size: 13px;
+      margin: 8px 8px 0 0;
+    }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+    .dot.live { background: var(--danger); animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: .35; } }
+    .score {
+      text-align: center;
+      padding: 18px 8px;
+    }
+    .score .num {
+      font-size: 56px;
+      line-height: 1;
+      font-weight: 900;
+      color: var(--accent);
+    }
+    .comment {
+      color: var(--text);
+      line-height: 1.7;
+      margin-top: 12px;
+      white-space: pre-line;
+    }
+    .small {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .recording-list a {
+      color: var(--accent);
+      word-break: break-all;
+    }
+    .hide { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>跳舞評比 MVP</h1>
+    <div class="sub">貼 YouTube 連結後，可以練習播放，也可以開前鏡頭錄影並做娛樂評分。第一次使用請允許相機權限。</div>
+
+    <div class="card">
+      <label for="ytUrl">YouTube 影片連結</label>
+      <input id="ytUrl" placeholder="例如：https://www.youtube.com/watch?v=xxxx" />
+      <div class="row">
+        <button id="practiceBtn">練習模式</button>
+        <button id="scoreBtn">跳舞評比</button>
+      </div>
+      <div class="row">
+        <button id="toggleSelfieBtn" class="secondary">隱藏/顯示小畫面</button>
+        <button id="stopBtn" class="danger" disabled>結束評比</button>
+      </div>
+      <div>
+        <span class="badge"><span id="cameraDot" class="dot"></span><span id="cameraText">鏡頭未啟動</span></span>
+        <span class="badge"><span id="recordDot" class="dot"></span><span id="recordText">未錄影</span></span>
+        <span class="badge">時間：<span id="timer">0</span> 秒</span>
+      </div>
+    </div>
+
+    <div class="stage card" style="padding:0;">
+      <div id="player"></div>
+      <div id="selfieBox" class="selfie">
+        <video id="camera" autoplay muted playsinline></video>
+      </div>
+    </div>
+
+    <div id="resultCard" class="card hide">
+      <div class="score">
+        <div>本次娛樂分數</div>
+        <div class="num"><span id="finalScore">0</span></div>
+        <div id="rankText" class="small"></div>
+        <div id="comment" class="comment"></div>
+      </div>
+    </div>
+
+    <div id="recordCard" class="card hide">
+      <h3 style="margin:0 0 8px;">本次錄影</h3>
+      <div class="small">網頁版無法直接指定存到 iPhone 某個資料夾。你可以先下載影片，再存到「照片」或「檔案」。</div>
+      <div id="recordingList" class="recording-list" style="margin-top:10px;"></div>
+      <div class="row">
+        <button id="deleteRecordingBtn" class="danger">刪除本次錄影</button>
+        <button id="resetBtn" class="secondary">重新開始</button>
+      </div>
+    </div>
+
+    <div class="card small">
+      <b>目前版本限制：</b><br />
+      1. 這版先用鏡頭活動量、是否在畫面中、錄影時間做娛樂評分。<br />
+      2. 尚未分析 YouTube 老師骨架，所以不是精準舞蹈比對。<br />
+      3. iPhone 建議用 Safari，且正式上線需要 HTTPS 才能穩定開啟相機。
+    </div>
+  </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    let player;
+    let cameraStream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordedUrl = null;
+    let isScoring = false;
+    let startTime = 0;
+    let timerId = null;
+    let motionId = null;
+    let lastImageData = null;
+    let motionScoreSum = 0;
+    let motionSamples = 0;
+    let activeFrameSamples = 0;
+
+    const $ = (id) => document.getElementById(id);
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: '',
+        playerVars: {
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1
+        }
+      });
+    }
+
+    function extractYouTubeId(url) {
+      try {
+        const u = new URL(url.trim());
+        if (u.hostname.includes('youtu.be')) return u.pathname.slice(1);
+        if (u.searchParams.get('v')) return u.searchParams.get('v');
+        const shorts = u.pathname.match(/\/shorts\/([^/?]+)/);
+        if (shorts) return shorts[1];
+        const embed = u.pathname.match(/\/embed\/([^/?]+)/);
+        if (embed) return embed[1];
+      } catch (e) {}
+      return url.trim();
+    }
+
+    function loadVideo() {
+      const id = extractYouTubeId($('ytUrl').value);
+      if (!id) {
+        alert('請先貼 YouTube 連結');
+        return false;
+      }
+      if (!player || !player.loadVideoById) {
+        alert('YouTube 播放器還沒載入完成，請再按一次');
+        return false;
+      }
+      player.loadVideoById(id);
+      return true;
+    }
+
+    async function startCamera() {
+      if (cameraStream) return cameraStream;
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      });
+      $('camera').srcObject = cameraStream;
+      $('cameraDot').classList.add('live');
+      $('cameraText').textContent = '鏡頭已啟動';
+      return cameraStream;
+    }
+
+    function stopCamera() {
+      if (!cameraStream) return;
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+      $('camera').srcObject = null;
+      $('cameraDot').classList.remove('live');
+      $('cameraText').textContent = '鏡頭未啟動';
+    }
+
+    function startRecorder(stream) {
+      recordedChunks = [];
+      recordedUrl = null;
+
+      const options = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? { mimeType: 'video/webm;codecs=vp9' }
+        : { mimeType: 'video/webm' };
+
+      mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.onstop = showRecording;
+      mediaRecorder.start();
+      $('recordDot').classList.add('live');
+      $('recordText').textContent = '錄影中';
+    }
+
+    function stopRecorder() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      $('recordDot').classList.remove('live');
+      $('recordText').textContent = '已停止錄影';
+    }
+
+    function showRecording() {
+      if (recordedChunks.length === 0) return;
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      recordedUrl = URL.createObjectURL(blob);
+      $('recordingList').innerHTML = `
+        <p><a href="${recordedUrl}" download="dance-recording.webm">下載本次錄影</a></p>
+        <video src="${recordedUrl}" controls playsinline style="width:100%;border-radius:14px;background:#000;transform:none;"></video>
+      `;
+      $('recordCard').classList.remove('hide');
+    }
+
+    function startTimer() {
+      startTime = Date.now();
+      $('timer').textContent = '0';
+      timerId = setInterval(() => {
+        $('timer').textContent = String(Math.floor((Date.now() - startTime) / 1000));
+      }, 500);
+    }
+
+    function stopTimer() {
+      clearInterval(timerId);
+      timerId = null;
+    }
+
+    function startMotionSampling() {
+      const video = $('camera');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      canvas.width = 160;
+      canvas.height = 90;
+      lastImageData = null;
+      motionScoreSum = 0;
+      motionSamples = 0;
+      activeFrameSamples = 0;
+
+      function sample() {
+        if (!isScoring) return;
+        if (video.readyState >= 2) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          if (lastImageData) {
+            let diff = 0;
+            for (let i = 0; i < img.data.length; i += 16) {
+              diff += Math.abs(img.data[i] - lastImageData.data[i]);
+            }
+            const normalized = diff / (img.data.length / 16);
+            motionScoreSum += normalized;
+            motionSamples++;
+            if (normalized > 4) activeFrameSamples++;
+          }
+          lastImageData = img;
+        }
+        motionId = requestAnimationFrame(sample);
+      }
+      sample();
+    }
+
+    function stopMotionSampling() {
+      cancelAnimationFrame(motionId);
+      motionId = null;
+    }
+
+    function calculateScore() {
+      const seconds = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+      const avgMotion = motionSamples ? motionScoreSum / motionSamples : 0;
+      const activeRatio = motionSamples ? activeFrameSamples / motionSamples : 0;
+
+      const durationScore = Math.min(25, seconds * 1.4);
+      const activityScore = Math.min(45, avgMotion * 5.2);
+      const rhythmLikeScore = Math.min(20, activeRatio * 26);
+      const bonus = Math.floor(Math.random() * 8) + 3;
+
+      let score = Math.round(durationScore + activityScore + rhythmLikeScore + bonus);
+      score = Math.max(35, Math.min(98, score));
+      return { score, seconds, avgMotion, activeRatio };
+    }
+
+    function showResult(stats) {
+      $('finalScore').textContent = stats.score;
+      let rank = '';
+      let comment = '';
+      if (stats.score >= 90) {
+        rank = '舞台小巨星等級';
+        comment = '太強了！動作很有活力，鏡頭前存在感滿滿。\n下次可以挑戰更快的歌曲！';
+      } else if (stats.score >= 75) {
+        rank = '節奏感不錯';
+        comment = '跳得很棒！身體活動量很夠，看起來有認真跟著音樂動。\n可以再試著把手部動作做大一點。';
+      } else if (stats.score >= 60) {
+        rank = '暖身成功';
+        comment = '有跟上喔！這次比較像練習版。\n下次可以站遠一點，讓全身都進入鏡頭，分數通常會更好。';
+      } else {
+        rank = '可愛亂舞組';
+        comment = '今天先開心最重要！\n建議下一次先看一遍影片，再跟著跳，會更有感覺。';
+      }
+      $('rankText').textContent = rank + `｜本次 ${stats.seconds} 秒`;
+      $('comment').textContent = comment;
+      $('resultCard').classList.remove('hide');
+    }
+
+    $('practiceBtn').addEventListener('click', () => {
+      loadVideo();
+    });
+
+    $('scoreBtn').addEventListener('click', async () => {
+      try {
+        if (!loadVideo()) return;
+        $('resultCard').classList.add('hide');
+        $('recordCard').classList.add('hide');
+        const stream = await startCamera();
+        isScoring = true;
+        $('scoreBtn').disabled = true;
+        $('stopBtn').disabled = false;
+        startRecorder(stream);
+        startTimer();
+        startMotionSampling();
+      } catch (err) {
+        alert('相機或錄影啟動失敗：' + err.message);
+      }
+    });
+
+    $('stopBtn').addEventListener('click', () => {
+      isScoring = false;
+      stopTimer();
+      stopMotionSampling();
+      stopRecorder();
+      const stats = calculateScore();
+      showResult(stats);
+      $('scoreBtn').disabled = false;
+      $('stopBtn').disabled = true;
+      if (player && player.pauseVideo) player.pauseVideo();
+    });
+
+    $('toggleSelfieBtn').addEventListener('click', () => {
+      $('selfieBox').classList.toggle('hidden');
+    });
+
+    $('deleteRecordingBtn').addEventListener('click', () => {
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+      recordedUrl = null;
+      recordedChunks = [];
+      $('recordingList').innerHTML = '';
+      $('recordCard').classList.add('hide');
+      $('recordText').textContent = '未錄影';
+    });
+
+    $('resetBtn').addEventListener('click', () => {
+      $('timer').textContent = '0';
+      $('resultCard').classList.add('hide');
+      $('recordCard').classList.add('hide');
+      $('recordingList').innerHTML = '';
+      $('recordText').textContent = '未錄影';
+      stopCamera();
+    });
+  </script>
+</body>
+</html>
